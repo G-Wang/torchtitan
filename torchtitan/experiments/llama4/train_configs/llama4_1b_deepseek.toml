@@ -1,0 +1,35 @@
+[job]
+description = "Llama-4 1B dense on 4x4090 with DeepSeek-V3 tokenizer"
+seed = 1234
+dump_folder = "./runs/llama4_1b_deepseek"
+
+[model]
+name = "llama4"
+flavor = "1B"
+hf_assets_remote = false
+hf_assets_path = "./hf_assets/deepseek-v3"   # local tokenizer (no Llama needed) 
+
+[training]
+steps = 10000
+seq_len = 4096
+local_batch_size = 4
+bf16 = true
+compile = true
+dataset = "c4"
+
+[optimizer]
+name = "adamw"
+lr = 3.0e-4
+weight_decay = 0.1
+betas = [0.9, 0.95]
+eps = 1e-8
+min_lr = 3.0e-5
+warmup_steps = 1000
+decay_steps = 9000
+
+[parallelism]
+use_fsdp = true
+dp_degree = 2
+tp_size  = 2
+pp_size  = 1
+cp_size  = 1

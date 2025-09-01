@@ -1,0 +1,36 @@
+[job]
+description = "Llama-3 1B on 4x4090 with DeepSeek-V3 tokenizer"
+seed = 1337
+# set your log/output base; can be overridden by --job.dump_folder
+dump_folder = "./runs/llama3_1b_deepseek"
+
+[model]
+name = "llama3"
+flavor = "1B"
+hf_assets_remote = false
+hf_assets_path = "./hf_assets/deepseek-v3"   # local path for tokenizer assets (no Llama access) 
+
+[training]
+steps = 10000
+seq_len = 4096
+local_batch_size = 4                  # per-GPU
+bf16 = true
+compile = true
+dataset = "c4"                        # uses the built-in C4 streaming loader
+
+[optimizer]
+name = "adamw"
+lr = 3.0e-4
+weight_decay = 0.1
+betas = [0.9, 0.95]
+eps = 1e-8
+min_lr = 3.0e-5
+warmup_steps = 1000
+decay_steps = 9000
+
+[parallelism]
+use_fsdp = true
+dp_degree = 2                         # 2-way data parallel
+tp_size  = 2                          # 2-way tensor parallel
+pp_size  = 1
+cp_size  = 1
