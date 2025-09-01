@@ -1,35 +1,72 @@
+# torchtitan/experiments/llama4/train_configs/llama4_1b_deepseek.toml
+# 1B preset for 4× RTX 4090 using DeepSeek-V3 tokenizer.
+# (Same schema as llama3 config; adapted for llama4 architecture.)
+
 [job]
-description = "Llama-4 1B dense on 4x4090 with DeepSeek-V3 tokenizer"
-seed = 1234
-dump_folder = "./runs/llama4_1b_deepseek"
+dump_folder = "./outputs"
+description = "Llama 4 1B training (DeepSeek tokenizer, 4x4090)"
+
+[profiling]
+enable_profiling = false
+save_traces_folder = "profile_trace"
+profile_freq = 100
+
+[metrics]
+log_freq = 10
+enable_tensorboard = true
+save_tb_folder = "tb"
 
 [model]
 name = "llama4"
-flavor = "1B"
-hf_assets_remote = false
-hf_assets_path = "./hf_assets/deepseek-v3"   # local tokenizer (no Llama needed) 
-
-[training]
-steps = 10000
-seq_len = 4096
-local_batch_size = 4
-bf16 = true
-compile = true
-dataset = "c4"
+flavor = "1B"                              # changed from larger variants
+hf_assets_path = "./hf_assets/deepseek-v3" # local tokenizer (no Llama needed)
+# converters = ["float8"]
 
 [optimizer]
-name = "adamw"
-lr = 3.0e-4
-weight_decay = 0.1
-betas = [0.9, 0.95]
+name = "AdamW"
+lr = 3e-4
 eps = 1e-8
-min_lr = 3.0e-5
-warmup_steps = 1000
-decay_steps = 9000
+
+[lr_scheduler]
+warmup_steps = 10000
+
+[training]
+local_batch_size = 2       # was 1; safer start for 24GB cards
+seq_len = 4096             # reduce to avoid OOM on 4090
+max_norm = 1.0
+steps = 1000000
+dataset = "c4"
 
 [parallelism]
-use_fsdp = true
-dp_degree = 2
-tp_size  = 2
-pp_size  = 1
-cp_size  = 1
+data_parallel_replicate_degree = 1
+data_parallel_shard_degree = 4  # explicit for 4 GPUs
+tensor_parallel_degree = 1
+pipeline_parallel_degree = 1
+context_parallel_degree = 1
+
+[checkpoint]
+enable = true
+folder = "checkpoint"
+interval = 5000
+last_save_model_only = true
+export_dtype = "float32"
+async_mode = "disabled" # ["disabled", "async", "async_with_pinned_mem"]
+
+[compile]
+enable=true
+components = ["model", "loss"]
+
+[activation_checkpoint]
+mode = "full"
+selective_ac_option = "op"  # "int" = ac every positive int layer or 'op', ac based on ops policy
+
+[float8]
+enable_fsdp_float8_all_gather = false
+precompute_float8_dynamic_scale_for_fsdp = false
+filter_fqns = ["output"]
+
+[validation]
+enable = false
+dataset = "c4_validation"
+freq = 500
+steps = 1200
