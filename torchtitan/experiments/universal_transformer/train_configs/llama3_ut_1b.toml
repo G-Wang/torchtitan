@@ -1,0 +1,33 @@
+# "1B-equivalent" params & 4×4090-friendly runtime
+[job]
+dump_folder = "./runs/llama3_ut_1b"
+
+[model]
+name   = "llama3_ut"
+flavor = "1B"   # dim=3072, heads=24 set in __init__.py mapping
+
+[training]
+seq_len = 4096
+local_batch_size = 2          # per-GPU
+grad_accum_steps = 2          # global batch = 2 * 4 GPUs * 2 = 16 micro-batches of seq_len
+dtype = "bf16"
+
+[parallelism]
+data_parallel_degree    = 4   # avoids TP across PCIe on 4090 rigs
+tensor_parallel_degree  = 1
+context_parallel_degree = 1
+pipeline_parallel_degree = 1
+
+[activation_checkpoint]
+mode = "full"
+early_stop = false
+
+[compile]
+enable  = true
+dynamic = false
+
+[model.universal_transformer]
+pre_layers     = 2
+shared_depth   = 6
+post_layers    = 2
+use_depth_embedding = true

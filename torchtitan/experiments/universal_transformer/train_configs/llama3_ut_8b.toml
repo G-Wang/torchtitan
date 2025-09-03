@@ -1,0 +1,32 @@
+[job]
+dump_folder = "./runs/llama3_ut_8b"
+
+[model]
+name   = "llama3_ut"
+flavor = "8B"
+
+[training]
+seq_len = 4096
+local_batch_size = 2
+grad_accum_steps = 2
+dtype = "bf16"
+
+[parallelism]
+data_parallel_degree = 8
+tensor_parallel_degree = 1
+context_parallel_degree = 1
+pipeline_parallel_degree = 1   # UT v1: keep PP off
+
+[activation_checkpoint]
+mode = "full"
+early_stop = false
+
+[compile]
+enable  = true
+dynamic = false
+
+[model.universal_transformer]
+pre_layers     = 2
+shared_depth   = 6
+post_layers    = 2
+use_depth_embedding = true
