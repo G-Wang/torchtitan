@@ -78,22 +78,35 @@ def parallelize_ut(model: nn.Module, parallel_dims: ParallelDims, job_config: Jo
         )
         maybe_enable_async_tp(job_config, parallel_dims)
 
-    # --- Activation Checkpointing: wrap pre / shared / post explicitly ---
-    apply_ac(model, job_config.activation_checkpoint,
-             model_compile_enabled=job_config.compile.enable,
-             use_flex_attn=getattr(model.model_args, "use_flex_attn", False))
-    if hasattr(model, "pre"):
-        for k, blk in model.pre.items():
-            model.pre[k] = _ckpt_wrap(blk, preserve_rng_state=False,
-                                      early_stop=job_config.activation_checkpoint.early_stop)
-    if hasattr(model, "shared_block"):
-        model.shared_block = _ckpt_wrap(model.shared_block, preserve_rng_state=False,
-                                        early_stop=job_config.activation_checkpoint.early_stop)
-    if hasattr(model, "post"):
-        for k, blk in model.post.items():
-            model.post[k] = _ckpt_wrap(blk, preserve_rng_state=False,
-                                       early_stop=job_config.activation_checkpoint.early_stop)
-    logger.info("UT: applied activation checkpointing to pre/shared/post")
+    # --- Activation Checkpointing ---
+    ac_cfg = job_config.activation_checkpoint
+    # Use core AC only if the model exposes a standard .layers stack.
+    if hasattr(model, "layers"):
+        apply_ac(
+            model,
+            ac_cfg,
+            model_compile_enabled=job_config.compile.enable,
+            use_flex_attn=getattr(model.model_args, "use_flex_attn", False),
+        )
+    # Wrap UT's pre/shared/post blocks locally when AC is enabled.
+    if getattr(ac_cfg, "mode", "off").lower() != "off":
+        if hasattr(model, "pre"):
+            for k, blk in model.pre.items():
+                model.pre[k] = _ckpt_wrap(
+                    blk, preserve_rng_state=False, early_stop=ac_cfg.early_stop
+                )
+        if hasattr(model, "shared_block"):
+            model.shared_block = _ckpt_wrap(
+                model.shared_block, preserve_rng_state=False, early_stop=ac_cfg.early_stop
+            )
+        if hasattr(model, "post"):
+            for k, blk in model.post.items():
+                model.post[k] = _ckpt_wrap(
+                    blk, preserve_rng_state=False, early_stop=ac_cfg.early_stop
+                )
+        logger.info("UT: activation checkpointing ENABLED on pre/shared/post")
+    else:
+        logger.info("UT: activation checkpointing DISABLED")
 
     # --- compile & FSDP & DDP (reusing Llama3 helpers) ---
     apply_compile(model, job_config)

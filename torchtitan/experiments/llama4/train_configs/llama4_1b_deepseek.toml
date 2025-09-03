@@ -19,7 +19,7 @@ save_tb_folder = "tb"
 [model]
 name = "llama4"
 flavor = "1B"                              # changed from larger variants
-hf_assets_path = "./hf_assets/deepseek-v3" # local tokenizer (no Llama needed)
+hf_assets_path = "./hf_assets/deepseek-v3/DeepSeek-V3" # local tokenizer (no Llama needed)
 # converters = ["float8"]
 
 [optimizer]

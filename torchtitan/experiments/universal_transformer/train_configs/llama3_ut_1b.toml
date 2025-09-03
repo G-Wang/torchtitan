@@ -1,33 +1,72 @@
-# "1B-equivalent" params & 4×4090-friendly runtime
+# torchtitan/experiments/universal_transformer/train_configs/llama3_ut_1b.toml
+# Universal Transformer 1B preset for 4× RTX 4090 using DeepSeek-V3 tokenizer.
+
 [job]
-dump_folder = "./runs/llama3_ut_1b"
+dump_folder = "./outputs"
+description = "Universal Transformer 1B training (DeepSeek tokenizer, 4x4090)"
+
+[profiling]
+enable_profiling = false
+save_traces_folder = "profile_trace"
+profile_freq = 100
+
+[metrics]
+log_freq = 10
+enable_tensorboard = true
+save_tb_folder = "tb"
 
 [model]
-name   = "llama3_ut"
-flavor = "1B"   # dim=3072, heads=24 set in __init__.py mapping
+name = "llama3_ut"
+flavor = "1B"                              # dim=3072, heads=24 set in __init__.py mapping
+hf_assets_path = "./hf_assets/deepseek-v3/DeepSeek-V3" # local tokenizer (no Llama access required)
+# converters = ["float8"]
+
+[optimizer]
+name = "AdamW"
+lr = 3e-4
+eps = 1e-8
+
+[lr_scheduler]
+warmup_steps = 10000
 
 [training]
-seq_len = 4096
-local_batch_size = 2          # per-GPU
-grad_accum_steps = 2          # global batch = 2 * 4 GPUs * 2 = 16 micro-batches of seq_len
-dtype = "bf16"
+local_batch_size = 2       # per-GPU; safer start for 24GB cards
+seq_len = 4096             # reduce to avoid OOM on 4090
+max_norm = 1.0
+steps = 1000000
+dataset = "c4"
 
 [parallelism]
-data_parallel_degree    = 4   # avoids TP across PCIe on 4090 rigs
-tensor_parallel_degree  = 1
-context_parallel_degree = 1
+data_parallel_replicate_degree = 1
+data_parallel_shard_degree = 4  # explicit for 4 GPUs
+tensor_parallel_degree = 1
 pipeline_parallel_degree = 1
+context_parallel_degree = 1
+
+[checkpoint]
+enable = true
+folder = "checkpoint"
+interval = 5000
+last_save_model_only = true
+export_dtype = "float32"
+async_mode = "disabled" # ["disabled", "async", "async_with_pinned_mem"]
+
+[compile]
+enable=true
+components = ["model", "loss"]
 
 [activation_checkpoint]
 mode = "full"
-early_stop = false
+selective_ac_option = "op"  # "int" = ac every positive int layer or 'op', ac based on ops policy
 
-[compile]
-enable  = true
-dynamic = false
+[float8]
+enable_fsdp_float8_all_gather = false
+precompute_float8_dynamic_scale_for_fsdp = false
+filter_fqns = ["output"]
 
-[model.universal_transformer]
-pre_layers     = 2
-shared_depth   = 6
-post_layers    = 2
-use_depth_embedding = true
+[validation]
+enable = false
+dataset = "c4_validation"
+freq = 500
+steps = 1200
+

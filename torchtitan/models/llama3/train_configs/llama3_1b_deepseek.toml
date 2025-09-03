@@ -19,7 +19,7 @@ save_tb_folder = "tb"
 [model]
 name = "llama3"
 flavor = "1B"                              # changed from "8B"
-hf_assets_path = "./hf_assets/deepseek-v3" # changed from "./assets/hf/Llama-3.1-8B"
+hf_assets_path = "./hf_assets/deepseek-v3/DeepSeek-V3" # changed from "./assets/hf/Llama-3.1-8B"
 # converters = ["float8"]
 
 [optimizer]
