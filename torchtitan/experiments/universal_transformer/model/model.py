@@ -82,11 +82,25 @@ class UniversalLlama(nn.Module, ModelProtocol):
                 self.model_args.rope_theta,
             )
         nn.init.normal_(self.tok_embeddings.weight)
+        
+        # Handle wrapped blocks (FSDP + checkpoint wrappers)
         for _, blk in self.pre.items():
-            blk.init_weights()
-        self.shared_block.init_weights()
+            # Get the original block if it's wrapped
+            orig_blk = getattr(blk, '_checkpoint_wrapped_module', blk)
+            if hasattr(orig_blk, 'init_weights'):
+                orig_blk.init_weights()
+        
+        # Handle shared block
+        orig_shared = getattr(self.shared_block, '_checkpoint_wrapped_module', self.shared_block)
+        if hasattr(orig_shared, 'init_weights'):
+            orig_shared.init_weights()
+            
         for _, blk in self.post.items():
-            blk.init_weights()
+            # Get the original block if it's wrapped
+            orig_blk = getattr(blk, '_checkpoint_wrapped_module', blk)
+            if hasattr(orig_blk, 'init_weights'):
+                orig_blk.init_weights()
+                
         self.norm.reset_parameters()
         # Same trunc-normal scaling as Llama3
         final_out_std = self.model_args.dim ** -0.5
